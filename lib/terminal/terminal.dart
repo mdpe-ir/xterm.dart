@@ -361,6 +361,11 @@ class Terminal
     _mouseMode = mode;
   }
 
+  void setSelectionMode(SelectionMode mode) {
+    _selection.setMode(mode);
+    refresh();
+  }
+
   void useMainBuffer() {
     _buffer = _mainBuffer;
   }
@@ -569,14 +574,20 @@ class Terminal
       var xStart = 0;
       var xEnd = viewWidth - 1;
 
-      if (row == _selection.start!.y) {
+      if (row == _selection.start!.y && selection!.mode == SelectionMode.Line) {
         xStart = _selection.start!.x;
-      } else if (!line.isWrapped) {
+      } else if (selection!.mode == SelectionMode.Block) {
+        xStart = min(_selection.start!.x, _selection.end!.x);
+      }
+      // Add a new line character in every line after the first one.
+      if (row > _selection.start!.y && !line.isWrapped) {
         builder.write("\n");
       }
 
-      if (row == _selection.end!.y) {
+      if (row == _selection.end!.y && selection!.mode == SelectionMode.Line) {
         xEnd = _selection.end!.x;
+      } else if (selection!.mode == SelectionMode.Block) {
+        xEnd = max(_selection.start!.x, _selection.end!.x);
       }
 
       for (var col = xStart; col <= xEnd; col++) {
@@ -594,8 +605,10 @@ class Terminal
           const blank = 32;
           char = blank;
         }
-
-        builder.writeCharCode(char);
+        // Check if the position is within the selection.
+        if (_selection.contains(Position(col, row))) {
+          builder.writeCharCode(char);
+        }
       }
     }
 
